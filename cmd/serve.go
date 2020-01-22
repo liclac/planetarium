@@ -22,6 +22,15 @@ var serveCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cacheDir := args[0]
 
+		mirrorDomains := map[string]string{}
+		for _, domainDef := range viper.GetStringSlice("domain") {
+			parts := strings.SplitN(domainDef, "=", 2)
+			if len(parts) < 2 {
+				return fmt.Errorf("invalid domain definition: %s", domainDef)
+			}
+			mirrorDomains[parts[0]] = parts[1]
+		}
+
 		lis, err := net.Listen("tcp", viper.GetString("addr"))
 		if err != nil {
 			return err
@@ -29,7 +38,16 @@ var serveCmd = &cobra.Command{
 		fmt.Println("Listening on", lis.Addr().String())
 
 		return http.Serve(lis, http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			if err := serveFromCache(rw, req, cacheDir); err != nil {
+			reqURL := *req.URL
+			if reqURL.Host == "" {
+				reqURL.Host = req.Host
+			}
+			if realDomain, ok := mirrorDomains[reqURL.Hostname()]; ok {
+				reqURL.Host = realDomain
+			}
+			u := normaliseURL(&reqURL)
+
+			if err := serveFromCache(rw, u, cacheDir); err != nil {
 				if os.IsNotExist(err) {
 					rw.WriteHeader(http.StatusNotFound)
 					fmt.Fprintln(rw, "Not Found")
@@ -43,12 +61,7 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func serveFromCache(rw http.ResponseWriter, req *http.Request, cacheDir string) error {
-	reqURL := *req.URL
-	if reqURL.Host == "" {
-		reqURL.Host = req.Host
-	}
-	u := normaliseURL(&reqURL)
+func serveFromCache(rw http.ResponseWriter, u *url.URL, cacheDir string) error {
 	filename := normURLToPath(cacheDir, u)
 
 	f, err := os.Open(filename)
@@ -57,7 +70,7 @@ func serveFromCache(rw http.ResponseWriter, req *http.Request, cacheDir string) 
 	}
 	defer f.Close()
 
-	rsp, err := http.ReadResponse(bufio.NewReader(f), req)
+	rsp, err := http.ReadResponse(bufio.NewReader(f), nil)
 	if err != nil {
 		return err
 	}
@@ -93,5 +106,6 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 
 	serveCmd.Flags().StringP("addr", "a", "127.0.0.1:8000", "address to listen on")
+	serveCmd.Flags().StringSliceP("domain", "d", nil, "my-example-mirror.com=example.com")
 	viper.BindPFlags(serveCmd.Flags())
 }
