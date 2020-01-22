@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,6 +22,15 @@ var serveCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cacheDir := args[0]
+
+		// Make sure the amber cache exists, is a directory, and isn't empty.
+		cacheEntries, err := ioutil.ReadDir(cacheDir)
+		if err != nil {
+			return err
+		}
+		if len(cacheEntries) == 0 {
+			return fmt.Errorf("no files preserved in amber; remember to run 'planetarium import'!")
+		}
 
 		mirrorDomains := map[string]string{}
 		for _, domainDef := range viper.GetStringSlice("domain") {
