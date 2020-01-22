@@ -14,8 +14,8 @@ import (
 )
 
 var importCmd = &cobra.Command{
-	Use:   "import cachedir file1.warc [fileN.warc...]",
-	Short: "Adds a WARC file to a cache for 'serve'",
+	Use:   "import <amber> <file1.warc> [fileN.warc...]",
+	Short: "Adds a WARC file to a piece of amber, for 'serve'",
 	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cachedir := args[0]

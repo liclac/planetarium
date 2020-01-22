@@ -16,8 +16,8 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve cachedir",
-	Short: "Serves a mirror from an 'import' cache",
+	Use:   "serve <amber>",
+	Short: "Serves a mirror from an 'import'",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cacheDir := args[0]
